@@ -175,6 +175,28 @@ exports.handler = async (event) => {
       savedSubmissionId = newSubmission.id;
     }
 
+    // 3. On a real submit, trigger the notification directly — this
+    // replaces Supabase's Database Webhooks feature, which has a known
+    // platform bug ("schema supabase_functions does not exist") that
+    // blocks webhook creation on some projects. Calling the sibling
+    // function directly sidesteps that entirely, since it's just one
+    // Netlify function calling another on the same site.
+    if (status === "submitted") {
+      const siteUrl = process.env.URL || "https://bodyunderstood.app";
+      fetch(`${siteUrl}/.netlify/functions/notify-new-submission`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          record: { ...submissionRow, id: savedSubmissionId, contact_id: contactId },
+          old_record: { status: "draft" },
+        }),
+      }).catch((err) => {
+        // Never let a notification failure affect the actual submission —
+        // the row is already safely saved either way.
+        console.error("Notification call failed:", err);
+      });
+    }
+
     return respond(200, { submissionId: savedSubmissionId, contactId });
   } catch (err) {
     console.error(err);
