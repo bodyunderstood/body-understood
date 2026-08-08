@@ -1,13 +1,15 @@
 // netlify/functions/notify-new-submission.js
 //
-// Called automatically by a Supabase Database Webhook the moment a
-// submission's status changes to "submitted". Sends Lisa an email with
-// the person's name, what they submitted, and a direct link into
-// Supabase to go watch it — so nothing sits unnoticed in a table.
+// Called directly by save-submission.js the moment someone finishes
+// submitting. Sends Lisa an email with the person's name, what they
+// submitted, and a direct link into Supabase to go watch it — so
+// nothing sits unnoticed in a table.
 //
-// One-time setup needed (see the instructions that come with this file):
-//   1. A free Resend account (resend.com) for sending the email
-//   2. A Supabase Database Webhook pointing at this function
+// (Originally designed to be triggered by a Supabase Database Webhook,
+// but that feature has a platform bug — "schema supabase_functions
+// does not exist" — that blocks webhook creation on some projects.
+// Calling this function directly from save-submission.js sidesteps
+// that entirely.)
 //
 // Required Netlify environment variables:
 //   SUPABASE_URL          -> same as the other functions
