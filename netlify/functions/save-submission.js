@@ -1,10 +1,10 @@
 // netlify/functions/save-submission.js
 //
 // This function is the ONLY thing allowed to talk to Supabase with
-// real write access. The app itself never sees the service_role key —
+// real write access. The app itself never sees the service_role key â€”
 // it just calls this function, and this function does the writing.
 //
-// Saving starts from step one, before anyone has given a phone/email —
+// Saving starts from step one, before anyone has given a phone/email â€”
 // every attempt gets a random draftKey the moment someone starts, and
 // that's what identifies "this person's in-progress submission" until
 // they reach the delivery step and give a real identifier. From that
@@ -47,10 +47,10 @@ exports.handler = async (event) => {
 
   const {
     submissionId, // null on first save, then the same id on every later save
-    draftKey, // always present — identifies the attempt before identity exists
+    draftKey, // always present â€” identifies the attempt before identity exists
     status = "draft", // "draft" | "submitted"
 
-    // identity — optional early on, required by the time status is "submitted"
+    // identity â€” optional early on, required by the time status is "submitted"
     mobileNumber,
     email,
     preferredName,
@@ -81,7 +81,7 @@ exports.handler = async (event) => {
   }
 
   try {
-    // 1. Find or create the contact — only once we actually have an identifier
+    // 1. Find or create the contact â€” only once we actually have an identifier
     let contactId = null;
 
     if (mobileNumber || email) {
@@ -128,7 +128,7 @@ exports.handler = async (event) => {
       }
     }
 
-    // 2. Find the existing submission — by id if we have one, otherwise by
+    // 2. Find the existing submission â€” by id if we have one, otherwise by
     //    draftKey (covers the case where an earlier response never made it
     //    back to the browser, so it doesn't have a submissionId yet)
     let existingSubmissionId = submissionId;
@@ -175,26 +175,32 @@ exports.handler = async (event) => {
       savedSubmissionId = newSubmission.id;
     }
 
-    // 3. On a real submit, trigger the notification directly — this
+    // 3. On a real submit, trigger the notification directly â€” this
     // replaces Supabase's Database Webhooks feature, which has a known
     // platform bug ("schema supabase_functions does not exist") that
     // blocks webhook creation on some projects. Calling the sibling
     // function directly sidesteps that entirely, since it's just one
     // Netlify function calling another on the same site.
+    //
+    // This MUST be awaited â€” serverless functions can be frozen the
+    // instant they return a response, so an un-awaited "fire and
+    // forget" call here would often never actually complete.
     if (status === "submitted") {
       const siteUrl = process.env.URL || "https://bodyunderstood.app";
-      fetch(`${siteUrl}/.netlify/functions/notify-new-submission`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          record: { ...submissionRow, id: savedSubmissionId, contact_id: contactId },
-          old_record: { status: "draft" },
-        }),
-      }).catch((err) => {
-        // Never let a notification failure affect the actual submission —
+      try {
+        await fetch(`${siteUrl}/.netlify/functions/notify-new-submission`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            record: { ...submissionRow, id: savedSubmissionId, contact_id: contactId },
+            old_record: { status: "draft" },
+          }),
+        });
+      } catch (err) {
+        // Never let a notification failure affect the actual submission â€”
         // the row is already safely saved either way.
         console.error("Notification call failed:", err);
-      });
+      }
     }
 
     return respond(200, { submissionId: savedSubmissionId, contactId });
